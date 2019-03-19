@@ -3,11 +3,10 @@
 }
 
 body{
-  background:#92bde7;
+  background:#C8CBF6;
   color:#485e74;
   line-height:1.6;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  padding:1em;
 }
 
 .container{
@@ -19,6 +18,10 @@ body{
 ul{
   list-style: none;
   padding:0;
+}
+
+textarea {
+  resize: none;
 }
 
 .brand{
@@ -38,7 +41,7 @@ ul{
 }
 
 .company-info{
-  background:#c9e6ff;
+  background:#E3E2DF;
 }
 
 .company-info h3, .company-info ul{
@@ -75,24 +78,45 @@ ul{
   border:1px solid #c9e6ff;
 }
 
-.contact form button{
-  background:#c9e6ff;
+.contact form button, #upload-csv input{
+  background:#98B8E4;
   border:0;
   text-transform: uppercase;
 }
 
-.contact form button:hover,.contact form button:focus{
+.contact form button:hover{
+  cursor: pointer;
+}
+
+.contact form button:hover,input[type="button"]:hover,.contact form button:focus{
   background:#92bde7;
   color:#fff;
   outline:0;
   transition: background-color 2s ease-out;
+  cursor: pointer;
+}
+
+#upload-csv input {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    padding: 20px 40px;
+}
+
+.upload{
+    position: relative;
+}
+
+.upload.success{
+    background: #319C97
 }
 
 /* LARGE SCREENS */
 @media(min-width:700px){
   .wrapper{
     display: grid;
-    grid-template-columns: 1fr 2fr;
+    grid-template-columns: 2fr 1fr;
   }
 
   .wrapper > *{
@@ -102,4 +126,47 @@ ul{
   .company-info h3, .company-info ul, .brand{
     text-align: left;
   }
+}
+
+#customers {
+  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+  border-collapse: collapse;
+  width: 100%;
+  margin: 30px auto;
+  box-shadow: 0 0 20px 0 rgba(72,94,116,0.7);
+}
+
+#customers td, #customers th {
+  padding: 8px;
+}
+
+#customers tr:nth-child(even){background-color: #7C79AE;}
+
+#customers th {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  text-align: left;
+  background-color: #C8CBF6;
+  color: white;
+}
+
+.errmsg{
+  color: #670D05;
+}
+
+#emailheader{
+    background-color: transparent;
+    width: 80px;
+    outline: none;
+    display: inline;
+    outline-style: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: solid #c9e6ff 1px;
+    padding: 3px 10px;
+}
+
+#upload-file{
+
 }

@@ -1,95 +1,48 @@
 const express = require('express');
+const fs = require('fs');
 const bodyParser = require('body-parser');
 const exphbs = require('express-handlebars');
 const path = require('path');
 const nodemailer = require('nodemailer');
 const _ = require('lodash');
-const fs = require('fs');
-const Multer = require('multer');
-const Parse = require('csv-parse');
+const multer = require('multer');
+const destination = './uploads';
 
 const app = express();
+const upload = multer();
+const storage = multer.diskStorage({
+  destination: function (req, file, callback) {
+    callback(null, destination);
+  },
+  filename: function (req, file, callback) {
+    callback(null, file.originalname);
+  }
+});
+const uploadMultiple = multer({ storage : storage }).array('userPhoto',2);
+let filePaths;
 
 // View engine setup
 app.engine('handlebars', exphbs());
 app.set('view engine', 'handlebars');
 
-// Static folder
+// Static foldermulter
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Body Parser Middleware
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
 app.get('/', (req, res) => {
   res.render('contact');
 });
 
-const usersGroup = [
-  {email: 'mvplang@gmail.com', userName: 'zitan'},
-  {email: 'mvplanggit@gmail.com', userName: 'erdan'}
-]
-
-//We will call this once Multer's middleware processed the request
-//and stored file in req.files.fileFormFieldName
-const data = [];
-
-function parseFile(req, res, next){
-    var filePath = req.file.path;
-    console.log(filePath);
-    function onNewRecord(record){
-        console.log(record);
-        data.push(record);
-    }
-
-    function onError(error){
-        console.log(error)
-    }
-
-    function done(linesRead){
-        console.log(data)
-    }
-
-    var columns = false; 
-    parseCSVFile(filePath, columns, onNewRecord, onError, done);
-}
-
-function parseCSVFile(sourceFilePath, columns, onNewRecord, handleError, done){
-    var source = fs.createReadStream(sourceFilePath);
-
-    var linesRead = 0;
-
-    var parser = Parse({
-        delimiter: ',', 
-        columns
-    });
-
-    parser.on("readable", function(){
-        var record;
-        while (record = parser.read()) {
-            linesRead++;
-            onNewRecord(record);
-        }
-    });
-
-    parser.on("error", function(error){
-        handleError(error)
-    });
-
-    parser.on("end", function(){
-        done(linesRead);
-    });
-
-    source.pipe(parser);
-}
-
-
 app.post('/send', (req, res) => {
-  const {email, password, message} = req.body;
+  const {email, password, message, usersGroup, subject, header} = req.body;
 
+  const users = JSON.parse(usersGroup);
   // create reusable transporter object using the default SMTP transport
-  let transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+  const transporter = nodemailer.createTransport({
+    host: 'smtpout.secureserver.net',
     port: 465,
     secure: true, // true for 465, false for other ports
     auth: {
@@ -101,35 +54,78 @@ app.post('/send', (req, res) => {
     }
   });
 
-  _.forEach(usersGroup, user => {
+  _.forEach(users, (user, index) => {
 
       const output = `
-        <h3>Hi ${user.userName}</h3>
+        <p>${header} ${user.username},</p>
         <p>${message}</p>
       `;
 
       // setup email data with unicode symbols
-      let mailOptions = {
+      const mailOptions = {
           from: email, // sender address
           to: user.email, // list of receivers
-          subject: 'Node Contact Request', // Subject line
-          text: 'Hello world?', // plain text body
-          html: output // html body
+          subject: subject, // Subject line
+          html: output, // html body
+          attachments: filePaths
       };
 
       // send mail with defined transport object
       transporter.sendMail(mailOptions, (error, info) => {
-          if (error) {
-              return console.log(error);
-          }
-          console.log('Message sent: %s', info.messageId);   
-          console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
+        if (error) {
+            console.log('fail: ',error)
+            io.sockets.emit('sent', {index: index + 1, state: 'Fail'});
+            return;
+        }
 
-          res.render('contact', {msg:'Email has been sent'}); 
-      });
+        // only needed when using pooled connections
+        transporter.close();
+        io.sockets.emit('sent', {index: index + 1, state: 'Success'});
+    });
   })
 });
 
-app.post('/send_users', [Multer({dest:'./uploads'}).single('file'), parseFile]);
+app.post('/send_users', upload.single('file'), async (req, res) => {
+  try {
+    const csvFile = req.file.buffer.toString();
+    const rows = csvFile.split('\n');
+    const result = [];
 
-app.listen(3000, () => console.log('Server started...'));
+    for (let row of rows) {
+      const columns = row.replace(/\r/g, '').split(',');
+      if(!_.isEmpty(columns[0])){
+        result.push({email: columns[0], username: columns[1]});
+      }
+    }
+
+    io.sockets.emit('emaillist',{ users: JSON.stringify(result)});
+  } catch (err) {
+    console.log(err);
+  }
+});
+
+app.post('/upload_files', (req, res) => {
+    uploadMultiple(req,res,function(err) {
+        if(err) {
+            return res.end("Error uploading file.");
+        }
+        filePaths = req.files;
+    });
+});
+
+const server = app.listen(3000, () => console.log('Server started...'));
+const io = require('socket.io').listen(server);
+
+io.sockets.on('connection', function(socket) {
+   socket.on('disconnect', function() {
+      fs.readdir(destination, (err, files) => {
+        if (err) throw err;
+
+        for (const file of files) {
+          fs.unlink(path.join(destination, file), err => {
+            if (err) throw err;
+          });
+        }
+      });
+   });
+});
